@@ -1,4 +1,4 @@
-       # User Registration API 
+# User Registration API 
 
 REST API for user registration with email activation code (1-minute TTL).
 
@@ -52,3 +52,4 @@ docker-compose exec app pytest
 
 
 **Made with ❤️ by Achraf Ben Hamou**
+
