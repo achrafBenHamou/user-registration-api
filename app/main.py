@@ -4,11 +4,16 @@ User Registration API with email activation code (1-minute TTL)
 
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Security, status
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.v1.router import router as api_v1_router
 from app.core.config import settings
 from app.schemas.health import HealthResponse
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +44,10 @@ app.add_middleware(
     allow_methods=["*"],  # Specify allowed HTTP methods
     allow_headers=["*"],  # Specify allowed headers
 )
+
+
+# Include API routers
+app.include_router(api_v1_router, prefix="/api/v1")
 
 
 @app.get("/", tags=["health"], response_model=HealthResponse)
