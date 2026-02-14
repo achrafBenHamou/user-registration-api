@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Security, status
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.core.config import settings
 from app.schemas.health import HealthResponse
 
 logger = logging.getLogger(__name__)
@@ -23,9 +24,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="User Registration API",
+    title=settings.app_description,
     description="User Registration API with email activation code (1-minute TTL)",
-    version="0.1.0",
+    version=settings.app_version,
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
@@ -47,7 +48,7 @@ async def root():
     Endpoint to verify API is running
     """
     return {
-        "message": "User Registration API",
-        "version": "0.1.0",
+        "message": settings.app_description,
+        "version": settings.app_version,
         "status": "operational",
     }
