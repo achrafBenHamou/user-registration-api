@@ -16,7 +16,7 @@ user-registration-api/
 ├── app/
 │   └── main.py              # Complete application (standalone)
 ├── migrations/
-│   └── 001_initial.sql      # Database schema
+│   └── init.sql      # Database schema
 ├── Dockerfile               # Docker image for the application
 ├── docker-compose.yml       # Service orchestration
 ├── pyproject.toml           # Poetry dependencies
@@ -45,8 +45,31 @@ curl http://localhost:8000/health
 # Note: Ensure the app service is running before executing tests
 docker-compose exec app pytest
 ```
+### Database
+- **PostgreSQL** running in a separate container
+- Migrations are located in the `migrations/` directory 
+- The first migration on `migrations/init.sql` sets up tables and indexes automatically when the database container starts.
+- Migration framework (not included in this project for simplicity).
+- Upgrade/ downgrade scripts can be added in the future for better schema management.
+- To show tables in the database, you can connect to the PostgreSQL container using this commands :
+```bash
+    # Connect to the PostgreSQL container
+    docker-compose exec db psql -U postgres -d user_registration_db
+    # List tables in the database
+    \dt
+```
+You  should see these tables in the database :
+```
+     Schema |       Name       | Type  |  Owner   
+    --------+------------------+-------+----------
+     public | activation_codes | table | postgres
+     public | users            | table | postgres
+    (2 rows)
+````
 
-**Available services:**
+---
+
+- **Available services:**
 - **API**: http://localhost:8000
 - **Documentation**: http://localhost:8000/docs || http://localhost:8000/redoc
 

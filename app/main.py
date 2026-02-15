@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import router as api_v1_router
 from app.core.config import settings
+from app.db.pool import db_pool
 from app.schemas.health import HealthResponse
 
 logging.basicConfig(
@@ -23,9 +24,22 @@ async def lifespan(app: FastAPI):
     """
     Lifespan context manager for application startup and shutdown events.
     """
-    logger.info("Starting lifespan mode")
+    logger.info("Starting application...")
+
+    # Startup: Initialize database pool
+    try:
+        await db_pool.connect()
+        logger.info("Database connection pool initialized")
+    except Exception as e:
+        logger.error(f"Failed to initialize database pool: {e}")
+        raise
+
     yield
-    logger.info("Finished lifespan mode")
+
+    # Shutdown: Close database pool
+    logger.info("Shutting down application...")
+    await db_pool.close()
+    logger.info("Database connection pool closed")
 
 
 app = FastAPI(

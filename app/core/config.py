@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     )
     app_version: str = _get_poetry_tool_element("version")
 
+    # DATABASE
+    database_url: str = "postgresql://postgres:postgres@postgres:5432/user_registration"
+    database_pool_min_size: int = 5
+    database_pool_max_size: int = 20
+    database_pool_timeout: int = 30
+    database_command_timeout: int = 30
+
     # Security
     bcrypt_rounds: int = 12
 
