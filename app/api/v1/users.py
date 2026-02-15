@@ -8,15 +8,18 @@ and account activation.
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
+from app.dependencies.deps import get_user_service
+from app.exceptions.user import UserAlreadyExistsException
 from app.schemas.user import (
     UserCreate,
     UserResponse,
     ActivateUserRequest,
     MessageResponse,
 )
+from app.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -30,7 +33,9 @@ security = HTTPBasic()
     summary="Register a new user",
     description="Create a new user account with email and password. The account will be inactive until activated.",
 )
-async def register_user(user_data: UserCreate) -> UserResponse:
+async def register_user(
+    user_data: UserCreate, user_service: UserService = Depends(get_user_service)
+) -> UserResponse:
     """
     Register a new user account.
 
@@ -39,14 +44,22 @@ async def register_user(user_data: UserCreate) -> UserResponse:
 
     Args:
         user_data: Payload containing the user's email and password.
-
+        user_service: User service Dependency.
     Returns:
         The created user representation with ``is_active`` set to False.
 
     Raises:
         HTTPException: If the email is already registered or validation fails.
     """
-    raise NotImplementedError("User registration endpoint not implemented yet")
+    try:
+        user = await user_service.register_user(user_data.email, user_data.password)
+        return UserResponse(**user)
+    except UserAlreadyExistsException as e:
+        logger.warning(f"Registration failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Email {user_data.email} is already registered",
+        )
 
 
 @router.post(

@@ -14,6 +14,8 @@ class Settings(BaseSettings):
     environment: str = Environment.LOCAL.value
 
     # Activation code
+    # Set to True to send automatically activation code on registration, False to skip sending activation code
+    send_activation_code_on_registration: bool = False
     activation_code_ttl_seconds: int = 60  # 1 minute
 
     # Application
