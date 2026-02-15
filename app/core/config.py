@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     # Activation code
     # Set to True to send automatically activation code on registration, False to skip sending activation code
-    send_activation_code_on_registration: bool = False
+    send_activation_code_on_registration: bool = True
     activation_code_ttl_seconds: int = 60  # 1 minute
 
     # Application
@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     database_pool_max_size: int = 20
     database_pool_timeout: int = 30
     database_command_timeout: int = 30
+
+    # email client api
+    email_api_url: str = "http://mailpit:8025/api/v1/send"
+    email_api_key: str = ""
+    email_api_timeout: float = 10.0
+    from_email: str = "no-reply@dailymotion.com"
+    from_name: str = "Dailymotion"
 
     # Security
     bcrypt_rounds: int = 12
