@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     )
     app_version: str = _get_poetry_tool_element("version")
 
+    # Security
+    bcrypt_rounds: int = 12
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )

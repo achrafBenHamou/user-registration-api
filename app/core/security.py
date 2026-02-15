@@ -2,18 +2,25 @@
 Security utilities for password hashing and verification.
 """
 
+import bcrypt
+
+from app.core.config import settings
+
 
 def hash_password(password: str) -> str:
     """
     Hash a password using bcrypt.
-
+    Another cryptographic hashing algorithm could be used here,
+    but bcrypt is a widely adopted for password hashing.
     Args:
         password: Plain text password
 
     Returns:
         Hashed password as string
     """
-    raise NotImplementedError("hash_password function is not implemented yet")
+    salt = bcrypt.gensalt(rounds=settings.bcrypt_rounds)
+    hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
+    return hashed.decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -27,4 +34,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         True if password matches, False otherwise
     """
-    raise NotImplementedError("verify_password function is not implemented yet")
+    return bcrypt.checkpw(
+        plain_password.encode("utf-8"), hashed_password.encode("utf-8")
+    )
