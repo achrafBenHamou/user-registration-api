@@ -39,11 +39,16 @@ docker-compose up --build -d
 curl http://localhost:8000/health
 ```
 ### Running Tests
-
+Run tests using pytest inside the app container
 ```bash
 # Run tests inside the app container
 # Note: Ensure the app service is running before executing tests
 docker-compose exec app pytest
+```
+Run tests with coverage report
+```bash
+# Run tests with coverage report inside the app container
+docker-compose exec api poetry run pytest --cov=app --cov-report=term-missing
 ```
 ### Database
 - **PostgreSQL** running in a separate container
