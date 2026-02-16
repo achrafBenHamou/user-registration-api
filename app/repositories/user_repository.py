@@ -151,3 +151,22 @@ class UserRepository:
             row = await conn.fetchrow(query, user_id)
             return row is not None
 
+    async def activate_user(self, user_id: UUID) -> bool:
+        """
+        Activate a user account.
+
+        Args:
+            user_id: User UUID
+
+        Returns:
+            bool: True if user was activated, False otherwise
+        """
+        query = """
+            UPDATE users
+            SET is_active = TRUE
+            WHERE id = $1 AND is_active = FALSE
+            RETURNING id
+        """
+        async with self.pool.acquire() as conn:
+            row = await conn.fetchrow(query, user_id)
+            return row is not None

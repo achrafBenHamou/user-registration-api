@@ -13,6 +13,8 @@ from app.exceptions.user import (
     UserAlreadyExistsException,
     UserAlreadyActivatedException,
     InvalidCredentialsException,
+    NoActivationCodeException,
+    InvalidActivationCodeException,
 )
 from app.services.email_service import EmailService
 
@@ -128,3 +130,47 @@ class UserService:
             to_email=email,
             code=code,
         )
+
+    async def activate_user(self, email: str, password: str, code: str) -> None:
+        """
+        Activate a user account with the provided code.
+
+        Args:
+            email: User email
+            password: Plain text password
+            code: 4-digit activation code
+
+        Raises:
+            InvalidCredentialsException: If credentials are invalid
+            UserAlreadyActivatedException: If user is already activated
+            NoActivationCodeException: If no activation code exists
+            InvalidActivationCodeException: If code is invalid or expired
+        """
+        # Authenticate user
+        user = await self.authenticate_user(email=email, password=password)
+
+        # Check if already activated
+        if user["is_active"]:
+            logger.warning(f"Activation failed: user {email} already activated")
+            raise UserAlreadyActivatedException()
+
+        # Check if activation code exists
+        has_code = await self.user_repository.has_activation_code(user["id"])
+        if not has_code:
+            logger.warning(f"Activation failed: no code for user {email}")
+            raise NoActivationCodeException()
+
+        # Verify activation code
+        is_valid = await self.user_repository.verify_activation_code(user["id"], code)
+
+        if not is_valid:
+            logger.warning(f"Activation failed: invalid or expired code for {email}")
+            raise InvalidActivationCodeException()
+
+        # Activate user
+        await self.user_repository.activate_user(user["id"])
+
+        # Delete activation code
+        await self.user_repository.delete_activation_code(user["id"])
+
+        logger.info(f"User activated: {email}")

@@ -8,6 +8,8 @@ from app.exceptions.user import (
     UserAlreadyExistsException,
     UserAlreadyActivatedException,
     InvalidCredentialsException,
+    NoActivationCodeException,
+    InvalidActivationCodeException,
 )
 
 # ==========================================================
@@ -237,4 +239,98 @@ async def test_request_activation_code_invalid_credentials(
             "test@example.com",
             "password",
             background_tasks,
+        )
+
+
+# ==========================================================
+# activate_user
+# ==========================================================
+
+
+@pytest.mark.asyncio
+async def test_activate_user_success(
+    user_service,
+    mock_user_repository,
+):
+    user_service.authenticate_user = AsyncMock(
+        return_value={"id": 1, "is_active": False}
+    )
+
+    mock_user_repository.has_activation_code.return_value = True
+    mock_user_repository.verify_activation_code.return_value = True
+
+    await user_service.activate_user(
+        "test@example.com",
+        "password",
+        "1234",
+    )
+
+    mock_user_repository.activate_user.assert_awaited_once_with(1)
+    mock_user_repository.delete_activation_code.assert_awaited_once_with(1)
+
+
+@pytest.mark.asyncio
+async def test_activate_user_already_active(user_service):
+    user_service.authenticate_user = AsyncMock(
+        return_value={"id": 1, "is_active": True}
+    )
+
+    with pytest.raises(UserAlreadyActivatedException):
+        await user_service.activate_user(
+            "test@example.com",
+            "password",
+            "1234",
+        )
+
+
+@pytest.mark.asyncio
+async def test_activate_user_no_activation_code(
+    user_service,
+    mock_user_repository,
+):
+    user_service.authenticate_user = AsyncMock(
+        return_value={"id": 1, "is_active": False}
+    )
+
+    mock_user_repository.has_activation_code.return_value = False
+
+    with pytest.raises(NoActivationCodeException):
+        await user_service.activate_user(
+            "test@example.com",
+            "password",
+            "1234",
+        )
+
+
+@pytest.mark.asyncio
+async def test_activate_user_invalid_code(
+    user_service,
+    mock_user_repository,
+):
+    user_service.authenticate_user = AsyncMock(
+        return_value={"id": 1, "is_active": False}
+    )
+
+    mock_user_repository.has_activation_code.return_value = True
+    mock_user_repository.verify_activation_code.return_value = False
+
+    with pytest.raises(InvalidActivationCodeException):
+        await user_service.activate_user(
+            "test@example.com",
+            "password",
+            "wrong_code",
+        )
+
+
+@pytest.mark.asyncio
+async def test_activate_user_invalid_credentials(user_service):
+    user_service.authenticate_user = AsyncMock(
+        side_effect=InvalidCredentialsException()
+    )
+
+    with pytest.raises(InvalidCredentialsException):
+        await user_service.activate_user(
+            "test@example.com",
+            "password",
+            "1234",
         )

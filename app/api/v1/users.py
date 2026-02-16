@@ -14,6 +14,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from app.dependencies.deps import get_user_service
 from app.exceptions.user import (
     UserAlreadyExistsException,
+    InvalidActivationCodeException,
     UserAlreadyActivatedException,
 )
 from app.schemas.user import (
@@ -125,6 +126,7 @@ async def request_activation_code(
 async def activate_user(
     activation_data: ActivateUserRequest,
     credentials: Annotated[HTTPBasicCredentials, Depends(security)],
+    user_service: UserService = Depends(get_user_service),
 ) -> MessageResponse:
     """
     Activate a user account using a verification code.
@@ -136,7 +138,7 @@ async def activate_user(
     Args:
         activation_data: Request payload containing the activation code.
         credentials: HTTP Basic authentication credentials.
-
+        user_service: User service Dependency.
     Returns:
         A confirmation message indicating that the account
         has been successfully activated.
@@ -145,4 +147,22 @@ async def activate_user(
         HTTPException: If authentication fails, the code is invalid,
         or the code has expired.
     """
-    raise NotImplementedError("User activation endpoint not implemented yet")
+    try:
+        await user_service.activate_user(
+            email=credentials.username,
+            password=credentials.password,
+            code=activation_data.code,
+        )
+        return MessageResponse(message="Account activated successfully")
+    except UserAlreadyActivatedException as e:
+        logger.warning(f"Activation failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User account is alr&&&&eady activated",
+        )
+    except InvalidActivationCodeException as e:
+        logger.warning(f"Activation failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired activation code",
+        )

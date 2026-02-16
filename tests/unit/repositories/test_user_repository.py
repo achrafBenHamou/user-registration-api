@@ -19,11 +19,9 @@ async def test_create_user_success():
         "created_at": "2024-01-01T00:00:00Z",
     }
 
-    # Mock connection
     mock_conn = AsyncMock()
     mock_conn.fetchrow.return_value = mock_row
 
-    # Mock pool.acquire() context manager
     mock_pool = MagicMock()
     mock_pool.acquire.return_value.__aenter__.return_value = mock_conn
     mock_pool.acquire.return_value.__aexit__.return_value = AsyncMock()
@@ -216,5 +214,46 @@ async def test_has_activation_code_false():
     repo = UserRepository(pool=mock_pool)
 
     result = await repo.has_activation_code(user_id)
+
+    assert result is False
+
+
+# -------------------------
+# ACTIVATE USER
+# -------------------------
+
+
+@pytest.mark.asyncio
+async def test_activate_user_success():
+    user_id = uuid4()
+
+    mock_conn = AsyncMock()
+    mock_conn.fetchrow.return_value = {"id": user_id}
+
+    mock_pool = MagicMock()
+    mock_pool.acquire.return_value.__aenter__.return_value = mock_conn
+    mock_pool.acquire.return_value.__aexit__.return_value = AsyncMock()
+
+    repo = UserRepository(pool=mock_pool)
+
+    result = await repo.activate_user(user_id)
+
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_activate_user_not_updated():
+    user_id = uuid4()
+
+    mock_conn = AsyncMock()
+    mock_conn.fetchrow.return_value = None
+
+    mock_pool = MagicMock()
+    mock_pool.acquire.return_value.__aenter__.return_value = mock_conn
+    mock_pool.acquire.return_value.__aexit__.return_value = AsyncMock()
+
+    repo = UserRepository(pool=mock_pool)
+
+    result = await repo.activate_user(user_id)
 
     assert result is False

@@ -33,3 +33,23 @@ class UserAlreadyActivatedException(AppException):
             message="User account is already activated",
             status_code=status.HTTP_400_BAD_REQUEST,
         )
+
+
+class InvalidActivationCodeException(AppException):
+    """Raised when an invalid or expired activation code is provided."""
+
+    def __init__(self):
+        super().__init__(
+            message="Invalid or expired activation code",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
+
+
+class NoActivationCodeException(AppException):
+    """Raised when no activation code exists for the user."""
+
+    def __init__(self):
+        super().__init__(
+            message="No activation code found. Please request a new one",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
