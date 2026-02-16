@@ -1,87 +1,57 @@
 import pytest
-import httpx
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock
 
 from app.services.email_service import EmailService
+from app.clients.mailpit_client import MailpitClient
 
 
 @pytest.fixture
-def email_service():
-    # We pass a dummy client since your implementation creates a new AsyncClient internally
-    return EmailService(client=AsyncMock())
+def mock_mailpit_client():
+    """Create a mock MailpitClient for testing."""
+    return AsyncMock(spec=MailpitClient)
+
+
+@pytest.fixture
+def email_service(mock_mailpit_client):
+    """Create an EmailService instance with mocked MailpitClient."""
+    return EmailService(mailpit_client=mock_mailpit_client)
 
 
 @pytest.mark.asyncio
-@patch("app.services.email_service.httpx.AsyncClient")
-async def test_send_activation_code_success(mock_async_client, email_service):
+async def test_send_activation_code_success(email_service, mock_mailpit_client):
+    """Test successful activation code email sending."""
     # Arrange
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.raise_for_status = MagicMock()
-
-    mock_client_instance = AsyncMock()
-    mock_client_instance.post = AsyncMock(return_value=mock_response)
-
-    # Mock async context manager
-    mock_async_client.return_value.__aenter__.return_value = mock_client_instance
+    mock_mailpit_client.send_email = AsyncMock(return_value=True)
 
     # Act
-    await email_service.send_activation_code("test@example.com", "1234")
+    result = await email_service.send_activation_code("test@example.com", "1234")
 
     # Assert
-    mock_client_instance.post.assert_awaited_once()
-    mock_response.raise_for_status.assert_called_once()
+    assert result is True
+    mock_mailpit_client.send_email.assert_awaited_once()
+    call_args = mock_mailpit_client.send_email.call_args
+    assert call_args.kwargs["to_email"] == "test@example.com"
+    assert call_args.kwargs["subject"] == "Your Activation Code"
+    assert "1234" in call_args.kwargs["text_body"]
+    assert "1234" in call_args.kwargs["html_body"]
 
 
 @pytest.mark.asyncio
-@patch("app.services.email_service.httpx.AsyncClient")
-async def test_send_activation_code_timeout(mock_async_client, email_service):
+async def test_send_activation_code_failure(email_service, mock_mailpit_client):
+    """Test failed activation code email sending."""
     # Arrange
-    mock_client_instance = AsyncMock()
-    mock_client_instance.post.side_effect = httpx.TimeoutException("Timeout")
+    mock_mailpit_client.send_email = AsyncMock(return_value=False)
 
-    mock_async_client.return_value.__aenter__.return_value = mock_client_instance
-
-    # Act (should not raise)
-    await email_service.send_activation_code("test@example.com", "1234")
+    # Act
+    result = await email_service.send_activation_code("test@example.com", "1234")
 
     # Assert
-    mock_client_instance.post.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-@patch("app.services.email_service.httpx.AsyncClient")
-async def test_send_activation_code_connection_error(mock_async_client, email_service):
-    # Arrange
-    mock_client_instance = AsyncMock()
-    mock_client_instance.post.side_effect = httpx.ConnectError("Connection failed")
-
-    mock_async_client.return_value.__aenter__.return_value = mock_client_instance
-
-    # Act (should not raise)
-    await email_service.send_activation_code("test@example.com", "1234")
-
-    # Assert
-    mock_client_instance.post.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-@patch("app.services.email_service.httpx.AsyncClient")
-async def test_send_activation_code_unexpected_error(mock_async_client, email_service):
-    # Arrange
-    mock_client_instance = AsyncMock()
-    mock_client_instance.post.side_effect = Exception("Unexpected error")
-
-    mock_async_client.return_value.__aenter__.return_value = mock_client_instance
-
-    # Act (should not raise)
-    await email_service.send_activation_code("test@example.com", "1234")
-
-    # Assert
-    mock_client_instance.post.assert_awaited_once()
+    assert result is False
+    mock_mailpit_client.send_email.assert_awaited_once()
 
 
 def test_build_text_body():
+    """Test text body generation."""
     ttl = 5
     code = "1234"
 
@@ -93,6 +63,7 @@ def test_build_text_body():
 
 
 def test_build_html_body():
+    """Test HTML body generation."""
     ttl = 5
     code = "1234"
 

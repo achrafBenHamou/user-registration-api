@@ -8,6 +8,7 @@ from fastapi import Depends
 
 from app.db.pool import db_pool
 from app.repositories.user_repository import UserRepository
+from app.clients.mailpit_client import MailpitClient
 from app.services.email_service import EmailService
 from app.services.user_service import UserService
 
@@ -40,10 +41,34 @@ async def get_http_client() -> httpx.AsyncClient:
         yield client
 
 
-def get_email_service(
+def get_mailpit_client(
     client: httpx.AsyncClient = Depends(get_http_client),
+) -> MailpitClient:
+    """
+    Get Mailpit client instance.
+
+    Args:
+        client: HTTP client for making requests
+
+    Returns:
+        MailpitClient: Mailpit client instance
+    """
+    return MailpitClient(client=client)
+
+
+def get_email_service(
+    mailpit_client: MailpitClient = Depends(get_mailpit_client),
 ) -> EmailService:
-    return EmailService(client=client)
+    """
+    Get email service instance.
+
+    Args:
+        mailpit_client: Mailpit client for sending emails
+
+    Returns:
+        EmailService: Email service instance
+    """
+    return EmailService(mailpit_client=mailpit_client)
 
 
 def get_user_service(
@@ -60,6 +85,4 @@ def get_user_service(
     Returns:
         UserService: User service instance
     """
-    return UserService(
-        user_repository=user_repository, email_service=email_service
-    )  # Email service will be injected later
+    return UserService(user_repository=user_repository, email_service=email_service)

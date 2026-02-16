@@ -1,93 +1,63 @@
 """
-Email service that calls a third-party HTTP API to send emails.
-This service treats email sending as an external HTTP service call,
+Email service that handles business logic for sending emails.
+Uses MailpitClient for actual HTTP communication.
 """
 
 import logging
-import httpx
 
 from app.core.config import settings
-from fastapi import status
+from app.clients.mailpit_client import MailpitClient
 
 logger = logging.getLogger(__name__)
 
 
 class EmailService:
     """
-    Email service that sends emails by calling a third-party HTTP API.
+    Email service that handles business logic for sending emails.
+    Delegates HTTP communication to MailpitClient.
     """
 
-    def __init__(self, client: httpx.AsyncClient):
+    def __init__(self, mailpit_client: MailpitClient):
         """
         Initialize the email service.
 
         Args:
-            client: HTTP client for making requests to the third-party service
+            mailpit_client: Client for communicating with Mailpit API
         """
-        self.client = client
-        self.api_url = settings.email_api_url
-        self.api_key = settings.email_api_key
-        self.timeout = settings.email_api_timeout
+        self.mailpit_client = mailpit_client
 
-    async def send_activation_code(self, to_email: str, code: str):
+    async def send_activation_code(self, to_email: str, code: str) -> bool:
         """
-        Send activation code email via third-party HTTP API.
-
-        Makes an HTTP request to the external email service.
+        Send activation code email.
 
         Args:
             to_email: Recipient email address
             code: 4-digit activation code
 
         Returns:
-            None
+            bool: True if email was sent successfully, False otherwise
         """
         ttl_minutes = settings.activation_code_ttl_seconds / 60
 
-        try:
-            logger.info(f"Calling third-party email API: {self.api_url}")
-            logger.info(f"Sending activation code {code} to {to_email}")
+        logger.info(f"Sending activation code {code} to {to_email}")
 
-            # Make HTTP POST request to third-party email service
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
-                    "http://mailpit:8025/api/v1/send",
-                    json={
-                        "From": {"Email": settings.from_email},
-                        "To": [{"Email": to_email}],
-                        "Subject": "Test Email",
-                        "Text": self._build_text_body(
-                            ttl_minutes=ttl_minutes, code=code
-                        ),
-                        "HTML": self._build_html_body(
-                            ttl_minutes=ttl_minutes, code=code
-                        ),
-                    },
-                )
+        subject = "Your Activation Code"
+        text_body = self._build_text_body(ttl_minutes=ttl_minutes, code=code)
+        html_body = self._build_html_body(ttl_minutes=ttl_minutes, code=code)
 
-                response.raise_for_status()
-            # Check response status
-            if (
-                status.HTTP_200_OK
-                <= response.status_code
-                < status.HTTP_300_MULTIPLE_CHOICES
-            ):
-                logger.info(
-                    f"Third-party email API responded successfully: "
-                    f"status={response.status_code}, email sent to {to_email}"
-                )
+        success = await self.mailpit_client.send_email(
+            to_email=to_email,
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+        )
 
-        except httpx.TimeoutException:
-            logger.error(
-                f"Third-party email API timeout after {self.timeout}s: {self.api_url}"
-            )
+        if success:
+            logger.info(f"Activation code email sent successfully to {to_email}")
+        else:
+            logger.error(f"Failed to send activation code email to {to_email}")
 
-        except httpx.ConnectError as e:
-            logger.error(
-                f"Failed to connect to third-party email API {self.api_url}: {str(e)}"
-            )
-        except Exception as e:
-            logger.error(f"Unexpected error calling third-party email API: {str(e)}")
+        return success
 
     @staticmethod
     def _build_text_body(ttl_minutes: float, code: str) -> str:
