@@ -8,11 +8,14 @@ and account activation.
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, status, HTTPException
+from fastapi import APIRouter, Depends, status, HTTPException, BackgroundTasks
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from app.dependencies.deps import get_user_service
-from app.exceptions.user import UserAlreadyExistsException
+from app.exceptions.user import (
+    UserAlreadyExistsException,
+    UserAlreadyActivatedException,
+)
 from app.schemas.user import (
     UserCreate,
     UserResponse,
@@ -34,7 +37,9 @@ security = HTTPBasic()
     description="Create a new user account with email and password. The account will be inactive until activated.",
 )
 async def register_user(
-    user_data: UserCreate, user_service: UserService = Depends(get_user_service)
+    user_data: UserCreate,
+    background_tasks: BackgroundTasks,
+    user_service: UserService = Depends(get_user_service),
 ) -> UserResponse:
     """
     Register a new user account.
@@ -44,6 +49,7 @@ async def register_user(
 
     Args:
         user_data: Payload containing the user's email and password.
+        background_tasks: BackgroundTasks dependency.
         user_service: User service Dependency.
     Returns:
         The created user representation with ``is_active`` set to False.
@@ -52,7 +58,7 @@ async def register_user(
         HTTPException: If the email is already registered or validation fails.
     """
     try:
-        user = await user_service.register_user(user_data.email, user_data.password)
+        user = await user_service.register_user(email=user_data.email, password=user_data.password, background_tasks=background_tasks)
         return UserResponse(**user)
     except UserAlreadyExistsException as e:
         logger.warning(f"Registration failed: {e}")
@@ -71,6 +77,8 @@ async def register_user(
 )
 async def request_activation_code(
     credentials: Annotated[HTTPBasicCredentials, Depends(security)],
+    background_tasks: BackgroundTasks,
+    user_service: UserService = Depends(get_user_service),
 ) -> MessageResponse:
     """
     Generate and send an activation code to the user.
@@ -80,6 +88,8 @@ async def request_activation_code(
 
     Args:
         credentials: HTTP Basic authentication credentials.
+        background_tasks: BackgroundTasks dependency.
+        user_service: User service Dependency.
 
     Returns:
         A confirmation message indicating that the activation
@@ -89,7 +99,20 @@ async def request_activation_code(
         HTTPException: If authentication fails or the user
         account does not exist.
     """
-    raise NotImplementedError("User activation code endpoint not implemented yet")
+    email = credentials.username
+    try:
+        await user_service.request_activation_code(
+            email=email,
+            password=credentials.password,
+            background_tasks=background_tasks,
+        )
+        return MessageResponse(message=f"Activation code sent to your email {email}")
+    except UserAlreadyActivatedException as e:
+        logger.warning(f"Activation code request failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User account is already activated",
+        )
 
 
 @router.post(
