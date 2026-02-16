@@ -48,6 +48,9 @@ class ActivateUserRequest(BaseModel):
         description="4-digit numeric activation code",
     )
 
+    class Config:
+        json_schema_extra = {"example": {"code": "1234"}}
+
 
 class MessageResponse(BaseModel):
     """Generic message response."""
