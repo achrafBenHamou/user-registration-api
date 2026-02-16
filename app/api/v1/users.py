@@ -16,6 +16,7 @@ from app.exceptions.user import (
     UserAlreadyExistsException,
     InvalidActivationCodeException,
     UserAlreadyActivatedException,
+    InvalidCredentialsException,
 )
 from app.schemas.user import (
     UserCreate,
@@ -112,6 +113,13 @@ async def request_activation_code(
             background_tasks=background_tasks,
         )
         return MessageResponse(message=f"Activation code sent to your email {email}")
+    except InvalidCredentialsException as e:
+        logger.warning(f"Authentication failed for activation code request: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Basic"},
+        )
     except UserAlreadyActivatedException as e:
         logger.warning(f"Activation code request failed: {e}")
         raise HTTPException(
@@ -158,6 +166,13 @@ async def activate_user(
             code=activation_data.code,
         )
         return MessageResponse(message="Account activated successfully")
+    except InvalidCredentialsException as e:
+        logger.warning(f"Authentication failed for activation: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid credentials",
+            headers={"WWW-Authenticate": "Basic"},
+        )
     except UserAlreadyActivatedException as e:
         logger.warning(f"Activation failed: {e}")
         raise HTTPException(
