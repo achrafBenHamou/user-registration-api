@@ -3,6 +3,8 @@
 A RESTful API for user registration with email-based account activation
 (activation code TTL: **1 minute**).
 
+📖 **[Architecture Documentation](./ARCHITECTURE.md)** - Detailed system design and layer responsibilities
+
 ------------------------------------------------------------------------
 
 ## Tech Stack
