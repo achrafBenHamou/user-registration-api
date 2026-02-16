@@ -1,83 +1,162 @@
-# User Registration API 
+# User Registration API
 
-REST API for user registration with email activation code (1-minute TTL).
+A RESTful API for user registration with email-based account activation
+(activation code TTL: **1 minute**).
+
+------------------------------------------------------------------------
 
 ## Tech Stack
 
-- **Python** 3.14
-- **FastAPI** 0.129.0  
-- **Poetry** - Dependency management
-- **Docker & Docker Compose** - Containerization
+-   **Python** 3.14
+-   **FastAPI** 0.129.0
+-   **Poetry** -- Dependency management
+-   **Docker & Docker Compose** -- Containerization & orchestration
+-   **PostgreSQL** -- Relational database
+
+------------------------------------------------------------------------
 
 ## Project Structure
 
-```
-user-registration-api/
-├── app/
-│   └── main.py              # Complete application (standalone)
-├── migrations/
-│   └── init.sql      # Database schema
-├── Dockerfile               # Docker image for the application
-├── docker-compose.yml       # Service orchestration
-├── pyproject.toml           # Poetry dependencies
-└── README.md
-```
+    user-registration-api/
+    ├── app/
+    │   └── main.py              # Main FastAPI application (standalone)
+    ├── migrations/
+    │   └── init.sql             # Initial database schema
+    ├── Dockerfile               # Application image definition
+    ├── docker-compose.yml       # Multi-container setup
+    ├── pyproject.toml           # Poetry configuration & dependencies
+    └── README.md
+
+------------------------------------------------------------------------
 
 ## Quick Start
 
 ### Prerequisites
-- Docker & Docker Compose installed
 
-### Launch
+-   Docker
+-   Docker Compose
 
-```bash
-# 1. Clone the project
+### Run the Application
+
+``` bash
+# Navigate to the project directory
 cd user-registration-api
-# 2. Build and start services
+
+# Build and start services
 docker-compose up --build -d
-# 3. Check everything is working
+
+# Verify the application is running
 curl http://localhost:8000/health
 ```
-### Running Tests
-Run tests using pytest inside the app container
-```bash
-# Run tests inside the app container
-# Note: Ensure the app service is running before executing tests
-docker-compose exec app pytest
+
+------------------------------------------------------------------------
+
+## Running Tests
+
+### Run Tests
+
+``` bash
+docker-compose exec api pytest
 ```
-Run tests with coverage report
-```bash
-# Run tests with coverage report inside the app container
+
+### Run Tests with Coverage
+
+``` bash
 docker-compose exec api poetry run pytest --cov=app --cov-report=term-missing
 ```
-### Database
-- **PostgreSQL** running in a separate container
-- Migrations are located in the `migrations/` directory 
-- The first migration on `migrations/init.sql` sets up tables and indexes automatically when the database container starts.
-- Migration framework (not included in this project for simplicity).
-- Upgrade/ downgrade scripts can be added in the future for better schema management.
-- To show tables in the database, you can connect to the PostgreSQL container using this commands :
-```bash
-    # Connect to the PostgreSQL container
-    docker-compose exec db psql -U postgres -d user_registration_db
-    # List tables in the database
-    \dt
+
+------------------------------------------------------------------------
+
+## Database
+
+-   PostgreSQL runs in a dedicated container.
+-   Database schema is initialized automatically using:
 ```
-You  should see these tables in the database :
+migrations/init.sql
 ```
-     Schema |       Name       | Type  |  Owner   
-    --------+------------------+-------+----------
-     public | activation_codes | table | postgres
-     public | users            | table | postgres
-    (2 rows)
-````
+-   No migration framework is included (for simplicity).
+-   Upgrade/downgrade scripts can be added later if needed.
 
----
+### Connect to the Database
 
-- **Available services:**
-- **API**: http://localhost:8000
-- **Documentation**: http://localhost:8000/docs || http://localhost:8000/redoc
+``` bash
+docker-compose exec db psql -U postgres -d user_registration_db
+
+# List tables
+\dt
+```
+
+Expected tables:
+
+    Schema |       Name       | Type  |  Owner
+    -------+------------------+-------+---------
+    public | activation_codes | table | postgres
+    public | users            | table | postgres
+
+------------------------------------------------------------------------
+
+## Available Services
 
 
-**Made with ❤️ by Achraf Ben Hamou**
+  Service              URL
+  -------------------- -----------------------------
+  - API                  http://localhost:8000
+  - Swagger Docs         http://localhost:8000/docs
+  - ReDoc                http://localhost:8000/redoc
+  - Mailpit (Email UI)   http://localhost:8025
 
+------------------------------------------------------------------------
+
+## API Workflow
+
+### 1. Register a User
+
+**Endpoint:** `POST /api/v1/users/register`
+
+``` bash
+curl -X POST 'http://localhost:8000/api/v1/users/register'   -H 'Content-Type: application/json'   -d '{
+    "email": "test@example.com",
+    "password": "MySecurePass123!"
+  }'
+```
+
+------------------------------------------------------------------------
+
+### 2. Retrieve Activation Code
+
+-   Check Mailpit at: http://localhost:8025 
+-   Code is also logged in the console (for testing).
+
+If expired (TTL: 1 minute):
+
+**Endpoint:** `POST /api/v1/users/activation-code`
+
+``` bash
+curl -X POST 'http://localhost:8000/api/v1/users/activation-code'   -u 'test@example.com:MySecurePass123!'
+```
+
+------------------------------------------------------------------------
+
+### 3. Activate the User
+
+**Endpoint:** `POST /api/v1/users/activate`
+
+``` bash
+curl -X POST 'http://localhost:8000/api/v1/users/activate'   -H 'Content-Type: application/json'   -u 'test@example.com:MySecurePass123!'   -d '{
+    "code": "1234"
+  }'
+```
+
+------------------------------------------------------------------------
+
+## Notes
+
+-   Basic Authentication is required for activation-related endpoints.
+-   Activation codes expire after **1 minute** (Could be modified on application settings).
+-   Users can request a new activation code if needed.
+
+------------------------------------------------------------------------
+
+## Author
+
+Made with ❤️ by **Achraf Ben Hamou**

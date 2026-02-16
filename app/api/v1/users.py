@@ -59,7 +59,11 @@ async def register_user(
         HTTPException: If the email is already registered or validation fails.
     """
     try:
-        user = await user_service.register_user(email=user_data.email, password=user_data.password, background_tasks=background_tasks)
+        user = await user_service.register_user(
+            email=user_data.email,
+            password=user_data.password,
+            background_tasks=background_tasks,
+        )
         return UserResponse(**user)
     except UserAlreadyExistsException as e:
         logger.warning(f"Registration failed: {e}")
@@ -158,7 +162,7 @@ async def activate_user(
         logger.warning(f"Activation failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User account is alr&&&&eady activated",
+            detail="User account is already activated",
         )
     except InvalidActivationCodeException as e:
         logger.warning(f"Activation failed: {e}")
