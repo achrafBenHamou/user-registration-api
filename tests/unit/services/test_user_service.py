@@ -89,15 +89,18 @@ async def test_register_user_success_with_activation(
         "email": "test@example.com",
     }
 
-    user_service.request_activation_code = AsyncMock()
-
-    await user_service.register_user(
+    result = await user_service.register_user(
         "test@example.com",
         "password",
         background_tasks,
     )
 
-    user_service.request_activation_code.assert_awaited_once()
+    assert result["email"] == "test@example.com"
+    background_tasks.add_task.assert_called_once_with(
+        user_service._generate_and_send_activation_code,
+        user_id=1,
+        email="test@example.com",
+    )
 
 
 @pytest.mark.asyncio
@@ -187,6 +190,70 @@ async def test_authenticate_user_invalid_password(
 
 
 @pytest.mark.asyncio
+async def test_generate_and_send_activation_code_success(
+    user_service,
+    mock_user_repository,
+    mock_email_service,
+):
+    mock_user_repository.create_activation_code.return_value = "1234"
+
+    await user_service._generate_and_send_activation_code(
+        user_id=1,
+        email="test@example.com",
+    )
+
+    mock_user_repository.create_activation_code.assert_awaited_once_with(1)
+    mock_email_service.send_activation_code.assert_awaited_once_with(
+        to_email="test@example.com",
+        code="1234",
+    )
+
+
+@pytest.mark.asyncio
+async def test_generate_and_send_activation_code_failure_in_generation(
+    user_service,
+    mock_user_repository,
+    mock_email_service,
+):
+    mock_user_repository.create_activation_code.side_effect = Exception(
+        "Database error"
+    )
+
+    # Should not raise, errors are logged
+    await user_service._generate_and_send_activation_code(
+        user_id=1,
+        email="test@example.com",
+    )
+
+    mock_user_repository.create_activation_code.assert_awaited_once_with(1)
+    mock_email_service.send_activation_code.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_generate_and_send_activation_code_failure_in_sending(
+    user_service,
+    mock_user_repository,
+    mock_email_service,
+):
+    mock_user_repository.create_activation_code.return_value = "1234"
+    mock_email_service.send_activation_code.side_effect = Exception("Email error")
+
+    # Should not raise, errors are logged
+    await user_service._generate_and_send_activation_code(
+        user_id=1,
+        email="test@example.com",
+    )
+
+    mock_user_repository.create_activation_code.assert_awaited_once_with(1)
+    mock_email_service.send_activation_code.assert_awaited_once()
+
+
+# ==========================================================
+# request_activation_code
+# ==========================================================
+
+
+@pytest.mark.asyncio
 async def test_request_activation_code_success(
     user_service,
     mock_user_repository,
@@ -196,16 +263,17 @@ async def test_request_activation_code_success(
         return_value={"id": 1, "is_active": False}
     )
 
-    mock_user_repository.create_activation_code.return_value = "1234"
-
     await user_service.request_activation_code(
         "test@example.com",
         "password",
         background_tasks,
     )
 
-    mock_user_repository.create_activation_code.assert_awaited_once_with(1)
-    background_tasks.add_task.assert_called_once()
+    background_tasks.add_task.assert_called_once_with(
+        user_service._generate_and_send_activation_code,
+        user_id=1,
+        email="test@example.com",
+    )
 
 
 @pytest.mark.asyncio

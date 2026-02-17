@@ -3,6 +3,8 @@ User service containing business logic.
 """
 
 import logging
+from uuid import UUID
+
 from asyncpg.exceptions import UniqueViolationError
 from fastapi import BackgroundTasks
 
@@ -53,13 +55,16 @@ class UserService:
             user = await self.user_repository.create_user(
                 email=email, hashed_password=hashed_password
             )
+
+            # Schedule activation code generation and sending in background (non-blocking)
             if settings.send_activation_code_on_registration:
-                logger.info(
-                    f"Sending activation code to {email} since send_activation_code_on_registration is True"
+                logger.info(f"Scheduling activation code to be sent to {email}")
+                background_tasks.add_task(
+                    self._generate_and_send_activation_code,
+                    user_id=user["id"],
+                    email=email,
                 )
-                await self.request_activation_code(
-                    email=email, password=password, background_tasks=background_tasks
-                )
+
             logger.info(f"User registered: {email}")
             return user
 
@@ -94,6 +99,35 @@ class UserService:
         logger.info(f"User authenticated: {email}")
         return user
 
+    async def _generate_and_send_activation_code(
+        self, user_id: UUID, email: str
+    ) -> None:
+        """
+        Generate activation code and send it via email (background task).
+        Errors are logged but don't block the user registration flow.
+
+        Args:
+            user_id: User ID
+            email: User email
+        """
+        try:
+            # Generate activation code
+            code = await self.user_repository.create_activation_code(user_id)
+            logger.info(f"Activation code generated for user {email}")
+
+            # Send email with code
+            await self.email_service.send_activation_code(
+                to_email=email,
+                code=code,
+            )
+            logger.info(f"Activation code sent to {email}")
+
+        except Exception as e:
+            logger.error(
+                f"Failed to generate or send activation code for {email}: {e}",
+                exc_info=True,
+            )
+
     async def request_activation_code(
         self, email: str, password: str, background_tasks: BackgroundTasks
     ) -> None:
@@ -119,16 +153,11 @@ class UserService:
             )
             raise UserAlreadyActivatedException()
 
-        # Generate activation code
-        code = await self.user_repository.create_activation_code(user["id"])
-
-        # Send email with code
-        # No need to await here since, user could request a new code if email fails, and we don't want to block the response
-        # Fails  are logged in the email service, and user can request a new code if they don't receive it, so we don't need to handle failures here
+        # Schedule code generation and sending in background (non-blocking)
         background_tasks.add_task(
-            self.email_service.send_activation_code,
-            to_email=email,
-            code=code,
+            self._generate_and_send_activation_code,
+            user_id=user["id"],
+            email=email,
         )
 
     async def activate_user(self, email: str, password: str, code: str) -> None:
